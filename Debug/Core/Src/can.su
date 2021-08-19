@@ -1,0 +1,12 @@
+can.c:43:6:MX_CAN_Init	8	static
+can.c:65:6:HAL_CAN_MspInit	40	static
+can.c:105:6:HAL_CAN_MspDeInit	16	static
+can.c:137:6:CanInit	8	static
+can.c:148:6:CanSaveReceivedData	8	static
+can.c:166:6:CanConfigFilter	8	static
+can.c:187:6:CanSendSync	8	static
+can.c:204:6:CanSendNmt	8	static
+can.c:225:6:CanSendTpdo	8	static
+can.c:250:6:CanSendTpdoTest	8	static
+can.c:286:6:CanTransfer	16	static
+can.c:304:6:CAN_SEND_CURRENT	8	static
