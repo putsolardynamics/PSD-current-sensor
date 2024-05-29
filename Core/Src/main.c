@@ -1,21 +1,21 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
+ * All rights reserved.</center></h2>
+ *
+ * This software component is licensed by ST under BSD 3-Clause license,
+ * the "License"; You may not use this file except in compliance with the
+ * License. You may obtain a copy of the License at:
+ *                        opensource.org/licenses/BSD-3-Clause
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -30,6 +30,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+
+#include "LTC2485.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -39,20 +41,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define LTC_ADDERS  0b00101110
-#define LTC248XADDR 0b01001000
 
-// Select ADC source - differential input or PTAT circuit
-#define VIN    0b00000000
-#define PTAT   0b00001000
-// Select rejection frequency - 50, 55, or 60Hz
-#define R50    0b00000010
-#define R55    0b00000000
-#define R60    0b00000100
-// Select speed mode
-#define SLOW   0b00000000 // slow output rate with autozero
-#define FAST   0b00000001 // fast output rate with no autozero
-
+// for debuging
+int32_t current;
 
 /* USER CODE END PD */
 
@@ -85,7 +76,6 @@ void SystemClock_Config(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	 uint8_t buf[4];
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -112,70 +102,41 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  int8_t config = VIN | R50 | SLOW;
-  HAL_I2C_Master_Transmit(&hi2c1, LTC248XADDR, &config, 1, HAL_MAX_DELAY);
-  HAL_I2C_Master_Transmit(&hi2c1, LTC248XADDR, &config, 1, HAL_MAX_DELAY);\
+	LTC_init();
 
-  HAL_GPIO_WritePin(CAN_RS_GPIO_Port, CAN_RS_Pin,GPIO_PIN_RESET);
+	// set RS pin on CAN transiver
+	HAL_GPIO_WritePin(CAN_RS_GPIO_Port, CAN_RS_Pin, GPIO_PIN_RESET);
 
 
-  CanConfigFilter(hcan, 1, 0x0000, 0x0000, 0x0000, 0x0000);
-  CanInit(hcan);
+	CanConfigFilter(hcan, 1, 0x0000, 0x0000, 0x0000, 0x0000);
+	CanInit(hcan);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-	  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+	while (1)
+	{
+		HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
 
+		current = LTC_get_Current();
 
-	  //HAL_I2C_Master_Transmit(&hi2c1, LTC248XADDR, &config, 1, HAL_MAX_DELAY);
-	  //for(int i=0;i<4;i++)buf[i] =0;
+		char data_to_send[20];
+		for(int i=0;i<20;i++)data_to_send[i] = 0;
 
+		sprintf((char*)data_to_send, "%d \n", (int32_t)current );
+		HAL_UART_Transmit(&huart1,&data_to_send, strlen(data_to_send),HAL_MAX_DELAY);
 
-	  HAL_I2C_Master_Receive(&hi2c1, LTC248XADDR | 1, &buf,4, HAL_MAX_DELAY);
+		CAN_SEND_CURRENT(hcan,(int32_t)current);
 
-
-	  //adc_read[3] &= 0x7F;
-
-
-	  int32_t x = (buf[0])<<24 | buf[1]<<16 | buf[2]<<8 | (buf[3] & 0b11000000);
-	  x ^= 0x80000000;
-
-
-	  const float Vref = 4090;
-	  double voltage = (double) x;
-	  voltage = voltage * Vref / 2147483648.0; //  voltage * Vref_in_mV / 2^31;
-
-	  double current = voltage / (20 * 0.001); //  voltage / (GAIN * Rshunt) ;
-	  current *=1.006; //gain calibration
-	  current += 25; //offest calibration
-	  //if(current<50 && current>-50)current = 0;// elminate small drift
-	  if(abs(current)<50)current = 0;
-	  current += 0.5; //to round number
-
-	  char data_to_send[20];
-
-
-
-	  for(int i=0;i<20;i++)data_to_send[i] = 0;
-	  sprintf((char*)data_to_send, "%d \n", (int32_t)current );
-	  HAL_UART_Transmit(&huart1,&data_to_send, strlen(data_to_send),HAL_MAX_DELAY);
-
-	  //CanSendSync(hcan);
-	  //current = 120036;
-	  CAN_SEND_CURRENT(hcan,(int32_t)current);
-
-	  HAL_Delay(160);
+		HAL_Delay(160);
 
 
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+	}
   /* USER CODE END 3 */
 }
 
@@ -234,7 +195,7 @@ void SystemClock_Config(void)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
+	/* User can add his own implementation to report the HAL error return state */
 
   /* USER CODE END Error_Handler_Debug */
 }
@@ -250,7 +211,7 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
+	/* User can add his own implementation to report the file name and line number,
      tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }

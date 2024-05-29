@@ -6,7 +6,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under BSD 3-Clause license,
@@ -315,8 +315,6 @@ void CAN_SEND_CURRENT(CAN_HandleTypeDef hcanx, int32_t data){
 	can_frame_template.tx_data[1] = (data >> 16) & 0xFF;
 	can_frame_template.tx_data[2] = (data >> 8) & 0xFF;
 	can_frame_template.tx_data[3] = (data) & 0xFF;
-
-
 
 
 	if (HAL_CAN_AddTxMessage(&hcanx, &can_frame_template.tx_header,
